@@ -11,6 +11,7 @@
 @interface TSTPersonsContainerViewController : UIViewController
 
 - (void)registerViewController:(UIViewController *)viewController forInterfaceOrientationMask:(NSUInteger)orientationMask;
+
 - (UIViewController *)registeredViewControllerForInterfaceOrientation:(UIInterfaceOrientation)orientation;
 
 @end

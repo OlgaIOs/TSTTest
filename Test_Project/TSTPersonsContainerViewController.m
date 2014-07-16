@@ -49,8 +49,6 @@ static const NSTimeInterval TSTAnimationDuration = 0.3;
     
     [self performSegueWithIdentifier:@"TSTTransitionSegue" sender:nil];
     [self performSegueWithIdentifier:@"TSTTransitionSegue2" sender:nil];
-    
-    self.navigationItem.rightBarButtonItem = [self addPersonButton];
 }
 
 
@@ -58,17 +56,6 @@ static const NSTimeInterval TSTAnimationDuration = 0.3;
     [super viewWillAppear:animated];
 
     [self updateContentForInterfaceOrientation:[[UIApplication sharedApplication] statusBarOrientation] animated:animated];
-}
-
-- (UIBarButtonItem *)addPersonButton {
-    return [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPerson:)];
-}
-
-#pragma mark - Actions
-- (void)addPerson:(id)sender {
-    if ([self.contentController respondsToSelector:@selector(addPerson:)]) {
-        [self.contentController performSelector:@selector(addPerson:) withObject:sender];
-    }
 }
 
 #pragma mark - Interface orientation methods
@@ -109,9 +96,12 @@ static const NSTimeInterval TSTAnimationDuration = 0.3;
     fromViewController.view.frame = self.view.bounds;
     fromViewController.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     
+//    __weak TSTPersonsContainerViewController *weakSelf = self;
     void(^completion)(BOOL finished) = ^(BOOL finished) {
         [fromViewController removeFromParentViewController];
         [toViewController didMoveToParentViewController:self];
+        
+        self.navigationItem.rightBarButtonItem = toViewController.navigationItem.rightBarButtonItem;
     };
     
     if (animated) {

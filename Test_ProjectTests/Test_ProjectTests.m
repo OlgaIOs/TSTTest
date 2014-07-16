@@ -13,8 +13,11 @@
 @interface Test_ProjectTests : XCTestCase
 
 @property (nonatomic, strong) TSTDataProvider *dataProvider;
-@property (nonatomic, assign) BOOL didChange;
+@property (nonatomic, assign) NSUInteger willChangeCount;
+@property (nonatomic, assign) NSUInteger didChangeCount;
 @property (nonatomic, strong) TSTPerson *testPerson;
+@property (nonatomic, strong) NSMutableArray *changes;
+
 
 @end
 
@@ -34,15 +37,23 @@
         person.firstName = [NSString stringWithFormat:@"Name %d", i];
         [array addObject:person];
     }
-    
+    self.willChangeCount = 0;
+    self.didChangeCount = 0;
+
     self.dataProvider = [[TSTDataProvider alloc] initWithArray:array];
+    [self.dataProvider addListener:self];
+    
+    self.changes = [NSMutableArray array];
+
 }
 
 - (void)tearDown
 {
     // Put teardown code here. This method is called after the invocation of each test method in the class.
     [super tearDown];
+    [self.dataProvider removeListener:self];
     self.dataProvider = nil;
+    self.changes = nil;
 }
 
 - (void)testCount
@@ -54,17 +65,29 @@
 {
     self.testPerson = [TSTPerson new];
     self.testPerson.firstName = @"test";
-    [self.dataProvider addListener:self];
-    [self.dataProvider addObject:self.testPerson ];
-    XCTAssertTrue(self.didChange);
+    [self.dataProvider addObject:self.testPerson];
+    NSDate *finish = [NSDate dateWithTimeIntervalSinceNow:10];
+    
+    while (self.didChangeCount != 1 && [[finish laterDate:[NSDate date]] isEqualToDate:finish]) {
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+    XCTAssertTrue(self.willChangeCount == 1);
+    XCTAssertTrue(self.didChangeCount == 1);
+
 }
 
 - (void)testListenerRemove
 {
     self.testPerson = [self.dataProvider objectAtIndex:self.dataProvider.count - 1];
-    [self.dataProvider addListener:self];
     [self.dataProvider removeObject:self.testPerson];
-    XCTAssertTrue(self.didChange);
+    XCTAssertTrue(self.willChangeCount == 1);
+    
+    NSDate *finish = [NSDate dateWithTimeIntervalSinceNow:10];
+    while (self.didChangeCount != 1 && [[finish laterDate:[NSDate date]] isEqualToDate:finish]) {
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+        
+    XCTAssertTrue(self.didChangeCount == 1);
 }
 
 - (void)testSave
@@ -80,20 +103,45 @@
     }
 }
 
+- (void)testReplasment
+{
+   
+    NSMutableArray *people = [NSMutableArray array];
+    dispatch_queue_t testQueuse = dispatch_queue_create("com.tst.test", DISPATCH_QUEUE_SERIAL);
+    dispatch_apply(10, testQueuse, ^(size_t idx) {
+        TSTPerson *testPerson = [TSTPerson new];
+        testPerson.firstName = [NSString stringWithFormat:@"TEST %zu",idx];
+        [people addObject:testPerson];
+    });
+    NSIndexSet *indexes = [NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, 10)];
+    [self.dataProvider replaceObjectsAtIndexes:indexes withObjects:people];
+    
+    NSDate *finish = [NSDate dateWithTimeIntervalSinceNow:10];
+    
+    while (self.didChangeCount != 1 && [[finish laterDate:[NSDate date]] isEqualToDate:finish]) {
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+    
+    XCTAssertTrue(self.willChangeCount == 1);
+    XCTAssertTrue(self.didChangeCount == 1);
+    XCTAssertTrue([self.changes count] == 20);
+    
+}
+
 
 - (void)observableObjectWillChangeContent:(id <TSTObservable>)observable userInfo:(NSMutableDictionary *)userInfo
 {
-    self.didChange = YES;
+    self.willChangeCount += 1;
 }
 
 - (void)observableObject:(id <TSTObservable>)observable didChangeObject:(id)anObject atIndex:(NSUInteger)index1 forChangeType:(TSTListenerChangeType)type userInfo:(NSMutableDictionary *)userInfo
 {
-    XCTAssertEqualObjects(anObject, self.testPerson , @"inserted person");
+    [self.changes addObject:anObject];
 }
 
 - (void)observableObjectDidChangeContent:(id <TSTObservable>)observable userInfo:(NSMutableDictionary *)userInfo
 {
-    self.didChange = YES;
+    self.didChangeCount += 1;
 }
 
 @end
